@@ -1,0 +1,26 @@
+FUNCTIONS
+
+S	(load savefile (map, inventory, user))
+
+TS	PING (empty JSON)
+ST	join (ke tracker) (declare existence)
+TS	serverStatus
+
+CS	signup
+CS	login
+CS	inventory
+CS	mixitem
+
+CS	map
+	  loadmap (from JSON savefile)
+CS	move
+CS	field (meng-AMBIL barang)
+
+CS	offer
+CS	tradebox
+CS	sendfind
+SS	findoffer
+CS	sendaccept
+SS	accept (offer)
+CS	fetchitem
+CS	canceloffer
