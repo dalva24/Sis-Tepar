@@ -10,6 +10,7 @@ import hashlib
 import datetime
 import random
 
+
 # Classes ==========================================================================
 class Inventory:
 	def __init__(self):
@@ -49,7 +50,8 @@ class Inventory:
 		else:
 			return "Unable to craft: cannot mix different tiers"
 
-	def xchange(self, bought, sold, boughtAmount, soldAmount):
+
+def xchange(self, bought, sold, boughtAmount, soldAmount):
 		self.item[bought] += boughtAmount
 		self.item[sold] -= soldAmount
 
@@ -139,9 +141,7 @@ class Fail(Exception):
 	def __str__(self):
 		return repr(self.msg)
 
-
 # Functions ========================================================================
-
 
 # Prep =============================================================================
 if len(sys.argv) < 3:
@@ -150,7 +150,7 @@ if len(sys.argv) < 3:
 if not os.path.exists(sys.argv[2]):
 	sys.exit('ERROR: Map %s was not found!' % sys.argv[2])
 
-TCP_IP = '127.0.0.1' # TODO: customize self IP from argv
+TCP_IP = '127.0.0.1'  # TODO: customize self IP from argv
 TCP_PORT = int(sys.argv[1])
 
 TRAC_IP = '127.0.0.1'
@@ -164,7 +164,13 @@ BUFFER_SIZE = 4096
 print("Broadcasting self existence to Tracker...")
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((TRAC_IP, TRAC_PORT))
-s.send("stringhere".encode('utf-8'))  # TODO: send self existence (join) #TAIGA#
+a = json.dumps({"method": "join", "ip": TCP_IP, "port": TCP_PORT})
+s.send(a.encode('utf-8'))
+packet = json.loads(s.recv(BUFFER_SIZE))
+if packet['status'] == 'ok':
+	OTHER_SERVERS = packet['value']
+else:
+	sys.exit("ERROR: " + packet['description'])
 s.close()
 
 print("Binding port...")
