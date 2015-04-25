@@ -11,6 +11,44 @@ import datetime
 import random
 
 
+# Prep =============================================================================
+if len(sys.argv) < 3:
+	sys.exit('Usage: server.py port mapfile\nAvailable mapfiles:\n  map1.json ')
+
+if not os.path.exists(sys.argv[2]):
+	sys.exit('ERROR: Map %s was not found!' % sys.argv[2])
+
+TCP_IP = '127.0.0.1'  # TODO: customize self IP from argv
+TCP_PORT = int(sys.argv[1])
+
+TRAC_IP = '127.0.0.1'
+TRAC_PORT = '8000'
+
+MAP = Map()
+UC = UserContainer()
+
+BUFFER_SIZE = 4096
+
+print("Broadcasting self existence to Tracker...")
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((TRAC_IP, TRAC_PORT))
+a = json.dumps({"method": "join", "ip": TCP_IP, "port": TCP_PORT})
+s.send(a.encode('utf-8'))
+packet = json.loads(s.recv(BUFFER_SIZE))
+if packet['status'] == 'ok':
+	OTHER_SERVERS = packet['value']
+else:
+	sys.exit("ERROR: " + packet['description'])
+s.close()
+
+print("Binding port...")
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind((TCP_IP, TCP_PORT))
+s.listen(1)
+
+MAIN_LOOP = True
+
+
 # Classes ==========================================================================
 class Inventory:
 	def __init__(self):
@@ -142,43 +180,6 @@ class Fail(Exception):
 		return repr(self.msg)
 
 # Functions ========================================================================
-
-# Prep =============================================================================
-if len(sys.argv) < 3:
-	sys.exit('Usage: server.py port mapfile\nAvailable mapfiles:\n  map1.json ')
-
-if not os.path.exists(sys.argv[2]):
-	sys.exit('ERROR: Map %s was not found!' % sys.argv[2])
-
-TCP_IP = '127.0.0.1'  # TODO: customize self IP from argv
-TCP_PORT = int(sys.argv[1])
-
-TRAC_IP = '127.0.0.1'
-TRAC_PORT = '8000'
-
-MAP = Map()
-UC = UserContainer()
-
-BUFFER_SIZE = 4096
-
-print("Broadcasting self existence to Tracker...")
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((TRAC_IP, TRAC_PORT))
-a = json.dumps({"method": "join", "ip": TCP_IP, "port": TCP_PORT})
-s.send(a.encode('utf-8'))
-packet = json.loads(s.recv(BUFFER_SIZE))
-if packet['status'] == 'ok':
-	OTHER_SERVERS = packet['value']
-else:
-	sys.exit("ERROR: " + packet['description'])
-s.close()
-
-print("Binding port...")
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind((TCP_IP, TCP_PORT))
-s.listen(1)
-
-MAIN_LOOP = True
 
 
 # Main Loop =============================================================================
