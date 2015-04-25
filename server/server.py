@@ -6,6 +6,8 @@ import socket
 import json
 import sys
 import os
+import hashlib
+import datetime
 
 # Classes ==========================================================================
 class Inventory:
@@ -56,6 +58,8 @@ class User:
 		self.name = name
 		self.pw = pw
 		self.inv = Inventory()
+		self.token = False
+		self.location = False
 
 	def getInventory(self):
 		return [
@@ -85,6 +89,8 @@ class UserContainer:
 		for usr in self.user:
 			if usr.name is uname:
 				if usr.pw is pw:
+					time = str(datetime.datetime.now())
+					usr.token = hashlib.md5(uname.encode()+pw.encode()+time.encode()).hexdigest()
 					return True
 				else:
 					return "username/password combination is not found"
@@ -108,7 +114,7 @@ class Map: # TODO: map JSON loader etc
 
 # Prep =============================================================================
 if len(sys.argv) < 3:
-	sys.exit('Usage: %s port mapfile')
+	sys.exit('Usage: server.py port mapfile\nAvailable mapfiles:\n  map1.json ')
 
 if not os.path.exists(sys.argv[2]):
 	sys.exit('ERROR: Map %s was not found!' % sys.argv[2])
@@ -121,7 +127,7 @@ TRAC_PORT = '8000'
 
 BUFFER_SIZE = 1024  # TODO: check specified buffsize
 
-MAP_FILE = int(sys.argv[2])
+MAP_FILE = sys.argv[2]
 
 print("Broadcasting self existence to Tracker...")
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
