@@ -9,6 +9,7 @@ import os
 import hashlib
 import datetime
 
+
 # Classes ==========================================================================
 class Inventory:
 	def __init__(self):
@@ -27,7 +28,7 @@ class Inventory:
 
 	def collect(self, name, amount):
 		self.item[name] += amount
-		return True;
+		return True
 
 	def mix(self, name1, name2):
 		if name1[1] is name2[1]:
@@ -48,7 +49,8 @@ class Inventory:
 		else:
 			return "Unable to craft: cannot mix different tiers"
 
-	def xchange(self, bought, sold, boughtAmount, soldAmount):
+
+def xchange(self, bought, sold, boughtAmount, soldAmount):
 		self.item[bought] += boughtAmount
 		self.item[sold] -= soldAmount
 
@@ -103,14 +105,12 @@ class UserContainer:
 		return True
 
 
-class Map: # TODO: map JSON loader etc
+class Map:  # TODO: map JSON loader etc
 	def __init__(self):
 		map = MAP_FILE
 
 
-
 # Functions ==========================================================================
-
 
 # Prep =============================================================================
 if len(sys.argv) < 3:
@@ -129,10 +129,19 @@ BUFFER_SIZE = 1024  # TODO: check specified buffsize
 
 MAP_FILE = sys.argv[2]
 
+ip = '192.168.1.112'
+port = 8000
+a = json.dumps({"method": "join", "ip": ip, "port": port})
+
 print("Broadcasting self existence to Tracker...")
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((TRAC_IP, TRAC_PORT))
-s.send("stringhere".encode('utf-8'))  # TODO: send self existence (join) #TAIGA#
+s.send(a.encode('utf-8'))  # TODO: send self existence (join) #TAIGA#
+packet = json.loads(s.recv(BUFFER_SIZE))
+if packet['status'] == 'ok':
+	otherServers = packet['value']
+else:
+	print("ERROR: " + packet['description'])
 s.close()
 
 print("Binding port...")
