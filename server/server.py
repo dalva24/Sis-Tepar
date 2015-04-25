@@ -211,6 +211,8 @@ while MAIN_LOOP is True:
 			print("nop")
 		elif packet['method'] == 'move':
 			print("nop")
+		elif packet['method'] == 'field':
+			print("nop")
 		elif packet['method'] == 'offer':
 			print("nop")
 		elif packet['method'] == 'tradebox':
