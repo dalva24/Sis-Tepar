@@ -8,6 +8,7 @@ import sys
 import os
 import hashlib
 import datetime
+import random
 
 # Classes ==========================================================================
 class Inventory:
@@ -27,7 +28,7 @@ class Inventory:
 
 	def collect(self, name, amount):
 		self.item[name] += amount
-		return True;
+		return True
 
 	def mix(self, name1, name2):
 		if name1[1] is name2[1]:
@@ -58,8 +59,10 @@ class User:
 		self.name = name
 		self.pw = pw
 		self.inv = Inventory()
-		self.token = False
-		self.location = False
+		self.token = None
+		self.location = None
+		self.newLocation = None
+		self.moveTime = None
 
 	def getInventory(self):
 		return [
@@ -75,15 +78,18 @@ class User:
 			self.inv.item['R41']
 		]
 
+	def move(self, newLoc):
+		if self.newLocation is None:
+			self.newLocation = newLoc
+			self.moveTime = random.randint(60,120)
+
 
 class UserContainer:
 	user = []
 
 	def __init__(self):
-		print("TODO") # TODO: JSON save file loader
-
-	def add(self, usr):
-		self.user.append(usr)
+		with open("users.json", 'r') as f:
+			self.user = json.load(f)
 
 	def login(self, uname, pw):
 		for usr in self.user:
@@ -91,25 +97,50 @@ class UserContainer:
 				if usr.pw is pw:
 					time = str(datetime.datetime.now())
 					usr.token = hashlib.md5(uname.encode()+pw.encode()+time.encode()).hexdigest()
+					usr.location = str(random.randint(0, MAP.width-1)) + str(random.randint(0, MAP.height-1))
 					return True
 				else:
-					return "username/password combination is not found"
+					raise Fail("username/password combination is not found")
+		raise Fail("username/password combination is not found")
 
 	def signup(self, uname, pw):
 		for usr in self.user:
 			if usr.name is uname:
-				return "username exists"
+				raise Fail("username exists")
 		self.user.append(User(uname, pw))
 		return True
 
+	def save(self):
+		for usr in self.user:
+			usr.token = None
+			usr.location = None
+			usr.newLocation = None
+			usr.moveTime = None
+		with open("users.json", "w") as f:
+			json.dump(self.user, f, default=lambda o: o.__dict__, indent=4)
+			# i have NO IDEA how that ^ works, but whatever -_- just works.
+			# indent optional.
 
-class Map: # TODO: map JSON loader etc
+
+class Map:
 	def __init__(self):
-		map = MAP_FILE
+		with open(sys.argv[2]) as f:
+			mapdata = json.load(f)
+		self.name = mapdata['name']
+		self.width = mapdata['width']
+		self.height = mapdata['height']
+		self.items = mapdata['map']
 
 
+# Exceptions =======================================================================
+class Fail(Exception):
+	def __init__(self, msg):
+		self.msg = msg
+	def __str__(self):
+		return repr(self.msg)
 
-# Functions ==========================================================================
+
+# Functions ========================================================================
 
 
 # Prep =============================================================================
@@ -119,15 +150,16 @@ if len(sys.argv) < 3:
 if not os.path.exists(sys.argv[2]):
 	sys.exit('ERROR: Map %s was not found!' % sys.argv[2])
 
-TCP_IP = '127.0.0.1'
+TCP_IP = '127.0.0.1' # TODO: customize self IP from argv
 TCP_PORT = int(sys.argv[1])
 
 TRAC_IP = '127.0.0.1'
 TRAC_PORT = '8000'
 
-BUFFER_SIZE = 1024  # TODO: check specified buffsize
+MAP = Map()
+UC = UserContainer()
 
-MAP_FILE = sys.argv[2]
+BUFFER_SIZE = 4096
 
 print("Broadcasting self existence to Tracker...")
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -156,9 +188,21 @@ while MAIN_LOOP is True:
 		if packet['method'] == 'serverStatus':  # TAIGA #
 			print("nop")
 		elif packet['method'] == 'signup':
-			print("nop")
+			try:
+				if UC.signup(packet['username'], packet['password']):
+					conn.send('{"status":"ok"}')
+				else:
+					conn.send('{"status":"error"}')
+			except Fail as e:
+				conn.send('{"status":"fail","description":"'+e.msg+'"}')
 		elif packet['method'] == 'login':
-			print("nop")
+			try:
+				if UC.login(packet['username'], packet['password']):
+					conn.send('{"status":"ok"}')
+				else:
+					conn.send('{"status":"error"}')
+			except Fail as e:
+				conn.send('{"status":"fail","description":"'+e.msg+'"}')
 		elif packet['method'] == 'inventory':
 			print("nop")
 		elif packet['method'] == 'mixitem':
@@ -191,7 +235,6 @@ while MAIN_LOOP is True:
 
 	conn.shutdown('SHUT_RDWR')
 	conn.close()
-
+	UC.save()  # save aaaall the time. really safe for times when server suddenly crash for no reason whatsoever.
 
 # Cleanup =============================================================================
-# TODO: save all stuff
