@@ -211,24 +211,25 @@ TCP_IP = '127.0.0.1'  # TODO: customize self IP from argv
 TCP_PORT = int(sys.argv[1])
 
 TRAC_IP = '127.0.0.1'
-TRAC_PORT = '8000'
+TRAC_PORT = 8000
 
 MAP = Map()
 UC = UserContainer()
 
 BUFFER_SIZE = 4096
 
-#print("Broadcasting self existence to Tracker...")
-#s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#s.connect((TRAC_IP, TRAC_PORT))
-#a = json.dumps({"method": "join", "ip": TCP_IP, "port": TCP_PORT})
-#s.send(a.encode('utf-8'))
-#packet = json.loads(s.recv(BUFFER_SIZE))
-#if packet['status'] == 'ok':
-#	OTHER_SERVERS = packet['value']
-#else:
-#	sys.exit("ERROR: " + packet['description'])
-#s.close()
+print("Broadcasting self existence to Tracker...")
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((TRAC_IP, TRAC_PORT))
+a = json.dumps({"method": "join", "ip": TCP_IP, "port": TCP_PORT})
+s.send(a.encode('utf-8'))
+packet = json.loads(s.recv(BUFFER_SIZE))
+OTHER_SERVERS = None
+if packet['status'] == 'ok':
+	OTHER_SERVERS = packet['value']
+else:
+	sys.exit("ERROR: " + packet['description'])
+s.close()
 
 print("Binding port...")
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -255,8 +256,10 @@ while MAIN_LOOP is True:
 	else:  # handleJSON
 		try:
 			packet = json.loads(data)
-			if packet['method'] == 'serverStatus':  # TAIGA #
-				print("nop")
+			if packet['method'] == 'serverStatus':
+				OTHER_SERVERS = packet['server']
+				msg = {'status': 'ok'}
+				conn.send(json.dumps(msg).encode('utf-8'))
 			elif packet['method'] == 'signup':
 				try:
 					if UC.signup(packet['username'], packet['password']):
