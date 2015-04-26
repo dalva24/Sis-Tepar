@@ -10,47 +10,34 @@ import hashlib
 import datetime
 import random
 
-
-# Prep =============================================================================
-if len(sys.argv) < 3:
-	sys.exit('Usage: server.py port mapfile\nAvailable mapfiles:\n  map1.json ')
-
-if not os.path.exists(sys.argv[2]):
-	sys.exit('ERROR: Map %s was not found!' % sys.argv[2])
-
-TCP_IP = '127.0.0.1'  # TODO: customize self IP from argv
-TCP_PORT = int(sys.argv[1])
-
-TRAC_IP = '127.0.0.1'
-TRAC_PORT = '8000'
-
-MAP = Map()
-UC = UserContainer()
-
-BUFFER_SIZE = 4096
-
-print("Broadcasting self existence to Tracker...")
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((TRAC_IP, TRAC_PORT))
-a = json.dumps({"method": "join", "ip": TCP_IP, "port": TCP_PORT})
-s.send(a.encode('utf-8'))
-packet = json.loads(s.recv(BUFFER_SIZE))
-if packet['status'] == 'ok':
-	OTHER_SERVERS = packet['value']
-else:
-	sys.exit("ERROR: " + packet['description'])
-s.close()
-
-print("Binding port...")
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind((TCP_IP, TCP_PORT))
-s.listen(1)
-
-MAIN_LOOP = True
-
-
 # Classes ==========================================================================
 class Inventory:
+	id2item = {
+		0: 'R11',
+		1: 'R12',
+		2: 'R13',
+		3: 'R14',
+		4: 'R21',
+		5: 'R22',
+		6: 'R23',
+		7: 'R31',
+		8: 'R32',
+		9: 'R41'
+	}
+
+	item2id = {
+		'R11': 0,
+		'R12': 1,
+		'R13': 2,
+		'R14': 3,
+		'R21': 4,
+		'R22': 5,
+		'R23': 6,
+		'R31': 7,
+		'R32': 8,
+		'R41': 9
+	}
+
 	def __init__(self):
 		self.item = {
 			'R11': 0,
@@ -64,12 +51,15 @@ class Inventory:
 			'R32': 0,
 			'R41': 0
 		}
+		self.newestItem = None
 
 	def collect(self, name, amount):
 		self.item[name] += amount
 		return True
 
 	def mix(self, name1, name2):
+		name1 = self.id2item[name1]
+		name2 = self.id2item[name2]
 		if name1[1] is name2[1]:
 			if int(name1[2]) is int(name2[2])+1 or int(name1[2])+1 is int(name2[2]):
 				if self.item[name1] >= 3 and self.item[name2] >= 3:
@@ -78,15 +68,18 @@ class Inventory:
 					resultantTier = int(name1[1]) + 1
 					if int(name1[2] < name2[2]):
 						self.item['R'+str(resultantTier)+name1[2]] += 1
+						self.newestItem = self.item2id['R'+str(resultantTier)+name1[2]]
 					else:
 						self.item['R'+str(resultantTier)+name2[2]] += 1
+						self.newestItem = self.item2id['R'+str(resultantTier)+name2[2]]
 					return True
 				else:
-					return "Unable to craft: insufficient ingredients"
+					raise Fail("Unable to craft: insufficient ingredients")
 			else:
-				return "Unable to craft: wrong recipe"
+				raise Fail("Unable to craft: wrong recipe")
 		else:
-			return "Unable to craft: cannot mix different tiers"
+			raise Fail("Unable to craft: cannot mix different tiers")
+
 
 
 def xchange(self, bought, sold, boughtAmount, soldAmount):
@@ -125,6 +118,7 @@ class User:
 
 
 class UserContainer:
+	CUR_USR = None
 	user = []
 
 	def __init__(self):
@@ -138,6 +132,7 @@ class UserContainer:
 					time = str(datetime.datetime.now())
 					usr.token = hashlib.md5(uname.encode()+pw.encode()+time.encode()).hexdigest()
 					usr.location = str(random.randint(0, MAP.width-1)) + str(random.randint(0, MAP.height-1))
+					self.CUR_USR = usr
 					return True
 				else:
 					raise Fail("username/password combination is not found")
@@ -161,6 +156,13 @@ class UserContainer:
 			# i have NO IDEA how that ^ works, but whatever -_- just works.
 			# indent optional.
 
+	def get(self, token):
+		for usr in self.user:
+			if usr.token is token:
+				self.CUR_USR = usr
+				return True
+		raise Fail("User not found")
+
 
 class Map:
 	def __init__(self):
@@ -179,10 +181,53 @@ class Fail(Exception):
 	def __str__(self):
 		return repr(self.msg)
 
+
+# Prep =============================================================================
+if len(sys.argv) < 3:
+	sys.exit('Usage: server.py port mapfile\nAvailable mapfiles:\n  map1.json ')
+
+if not os.path.exists(sys.argv[2]):
+	sys.exit('ERROR: Map %s was not found!' % sys.argv[2])
+
+TCP_IP = '127.0.0.1'  # TODO: customize self IP from argv
+TCP_PORT = int(sys.argv[1])
+
+TRAC_IP = '127.0.0.1'
+TRAC_PORT = '8000'
+
+MAP = Map()
+UC = UserContainer()
+
+BUFFER_SIZE = 4096
+
+print("Broadcasting self existence to Tracker...")
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((TRAC_IP, TRAC_PORT))
+a = json.dumps({"method": "join", "ip": TCP_IP, "port": TCP_PORT})
+s.send(a.encode('utf-8'))
+packet = json.loads(s.recv(BUFFER_SIZE))
+if packet['status'] == 'ok':
+	OTHER_SERVERS = packet['value']
+else:
+	sys.exit("ERROR: " + packet['description'])
+s.close()
+
+print("Binding port...")
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind((TCP_IP, TCP_PORT))
+s.listen(1)
+
+MAIN_LOOP = True
+
+SRVT = "0"  # TODO TIME
+
+
 # Functions ========================================================================
 
 
 # Main Loop =============================================================================
+
+
 print("Server Init Completed. Listening...")
 while MAIN_LOOP is True:
 	conn, addr = s.accept()
@@ -197,23 +242,64 @@ while MAIN_LOOP is True:
 		elif packet['method'] == 'signup':
 			try:
 				if UC.signup(packet['username'], packet['password']):
-					conn.send('{"status":"ok"}')
+					msg = {'status': 'ok'}
+					conn.send(json.dumps(msg).encode('utf-8'))
 				else:
-					conn.send('{"status":"error"}')
+					msg = {'status': 'error'}
+					conn.send(json.dumps(msg).encode('utf-8'))
 			except Fail as e:
-				conn.send('{"status":"fail","description":"'+e.msg+'"}')
+				msg = {
+					'status': 'fail',
+					'description': e.msg
+				}
+				conn.send(json.dumps(msg).encode('utf-8'))
 		elif packet['method'] == 'login':
 			try:
 				if UC.login(packet['username'], packet['password']):
-					conn.send('{"status":"ok"}')
+					msg = {
+						'status': 'ok',
+						'token': UserContainer.CUR_USR.token,
+						'x': UserContainer.CUR_USR.location[0],
+						'y': UserContainer.CUR_USR.location[1],
+						'time': SRVT  # TODO TIME
+					}
+					conn.send(json.dumps(msg).encode('utf-8'))
 				else:
-					conn.send('{"status":"error"}')
+					msg = {'status': 'error'}
+					conn.send(json.dumps(msg).encode('utf-8'))
 			except Fail as e:
 				conn.send('{"status":"fail","description":"'+e.msg+'"}')
 		elif packet['method'] == 'inventory':
-			print("nop")
+			try:
+				if UC.get(packet['token']):
+					msg = {
+						'status': 'ok',
+						'inventory': str(UserContainer.CUR_USR.getInventory)
+					}
+					conn.send(json.dumps(msg).encode('utf-8'))
+				else:
+					msg = {'status': 'error'}
+					conn.send(json.dumps(msg).encode('utf-8'))
+			except Fail as e:
+				msg = {'status': 'error'}
+				conn.send(json.dumps(msg).encode('utf-8'))
 		elif packet['method'] == 'mixitem':
-			print("nop")
+			try:
+				if UC.get(packet['token']):
+					if UserContainer.CUR_USR.mix(packet['item1'], packet['item2']):
+						msg = {
+							'status': 'ok',
+							'item': UserContainer.CUR_USR.newestItem
+						}
+						conn.send(json.dumps(msg).encode('utf-8'))
+					else:
+						msg = {'status': 'error'}
+						conn.send(json.dumps(msg).encode('utf-8'))
+				else:
+					msg = {'status': 'error'}
+					conn.send(json.dumps(msg).encode('utf-8'))
+			except Fail as e:
+				conn.send('{"status":"fail","description":"'+e.msg+'"}')
 		elif packet['method'] == 'map':
 			print("nop")
 		elif packet['method'] == 'move':

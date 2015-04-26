@@ -9,7 +9,7 @@ BUFFER_SIZE = 1024
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((TCP_IP, TCP_PORT))
-s.send("Hello, World! avhngsenviwuehygvnowucerhvnieufchisbdtguhnvlakwghbdnrlvsuehnlrtvguhfvldbgufhngloveigrhawvneofhvnpesoifjacnwkurvbklh".encode('utf-8'))
+s.send('{"method":"killserver","magicString":"q34tAq34tb3qy4IUaXa4t"}'.encode('utf-8'))
 data = s.recv(BUFFER_SIZE)
 s.close()
 
