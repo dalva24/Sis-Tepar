@@ -88,7 +88,7 @@ class User:
 		if int(self.newLocation[0]) is int(self.location[0])+1 or int(self.newLocation[0]) is int(self.location[0])-1:
 			if int(self.newLocation[1]) is int(self.location[1])+1 or int(self.newLocation[1]) is int(self.location[1])-1:
 				self.newLocation = newLoc
-				self.moveTime = random.randint(60,120)   # TODO: time, and what happens when time reaches zero? threads?
+				self.moveTime = random.randint(60, 120)   # TODO: time, and what happens when time reaches zero? threads?
 				return self.moveTime
 			else:
 				raise Fail("move location is too far")
@@ -99,9 +99,9 @@ class User:
 class UserContainer:
 	user = []
 
-	#def __init__(self): # TODO: fix
-		#with open("users.json", 'r') as f:
-			#self.user = json.load(f)
+	def __init__(self):
+		file = open("savefile.obj", 'rb')
+		self.user = pickle.load(file)
 
 	def login(self, uname, pw):
 		for usr in self.user:
@@ -128,12 +128,14 @@ class UserContainer:
 			usr.location = None
 			usr.newLocation = None
 			usr.moveTime = None
-		with open("usersave.p","wb") as f:  # TODO fix
-			pickle.dump(self, f)
+		#with open("usersave.p","wb") as f:  # TODO fix
+			#pickle.dump(self, f)
 		#with open("users.json", "w") as f:
 			#json.dump(self.user, f, default=lambda o: o.__dict__, indent=4)
 			# i have NO IDEA how that ^ works, but whatever -_- just works.
 			# indent optional.
+		filehandler = open(b"savefile.obj", "wb")
+		pickle.dump(self.user, filehandler)
 
 	def mix(self, token, name1, name2):
 		for usr in self.user:
@@ -174,7 +176,6 @@ class UserContainer:
 			if usr.token is token:
 				return X.getuserbox(usr.name)
 		raise Fail("User not found")
-
 
 class Map:
 	def __init__(self):
@@ -542,7 +543,7 @@ while MAIN_LOOP is True:
 		#	print("ERROR: unknown exception in handling connection data.")
 		#	print(ex)
 
-	#conn.shutdown('SHUT_RDWR')
+	# conn.shutdown('SHUT_RDWR')
 	conn.close()
 	UC.save()  # save aaaall the time. really safe for times when server suddenly crash for no reason whatsoever.
 
