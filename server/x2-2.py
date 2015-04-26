@@ -1,6 +1,13 @@
 # from x3 import UserContainer
 import pickle
-from x2 import BTest
+
+class Test:
+	testmeh = []
+
+class BTest:
+	def __init__(self, x, y):
+		self.datax = x
+		self.datay = y
 
 file = open("yapokoknyagitu.obj",'rb')
 object_file = pickle.load(file)

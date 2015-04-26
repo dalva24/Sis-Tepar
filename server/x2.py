@@ -7,7 +7,7 @@ class BTest:
 	def __init__(self, x, y):
 		self.datax = x
 		self.datay = y
-	
+
 tet = Test()
 bte = BTest('ma',1234)
 bte2 = BTest('me',4321)
@@ -15,7 +15,7 @@ bte2 = BTest('me',4321)
 tet.testmeh.append(bte)
 tet.testmeh.append(bte2)
 
-filehandler = open(b"yapokoknyagitu.obj","wb")
+filehandler = open("yapokoknyagitu.obj","wb")
 pickle.dump(tet, filehandler)
 
 filehandler.close()
