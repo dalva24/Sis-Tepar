@@ -128,7 +128,7 @@ class UserContainer:
 			usr.location = None
 			usr.newLocation = None
 			usr.moveTime = None
-		#with open("usersave.p","wb") as f:  # TODO fix
+		#with open("usersave.p","wb") as f:  # TODO check
 			#pickle.dump(self, f)
 		#with open("users.json", "w") as f:
 			#json.dump(self.user, f, default=lambda o: o.__dict__, indent=4)
@@ -318,6 +318,16 @@ def item2id(name):
 	return translator[name]
 
 
+def prepFailJSON(ex):
+	print("an operation has failed at line " + lineno())
+	print(ex.msg)
+	jmsg = {
+		'status': 'fail',
+		'description': e.msg
+	}
+	return json.dumps(jmsg).encode('utf-8')
+
+
 # Prep =============================================================================
 if len(sys.argv) < 3:
 	sys.exit('Usage: server.py port mapfile\nAvailable mapfiles:\n  map1.json ')
@@ -337,18 +347,18 @@ X = Xchange()
 
 BUFFER_SIZE = 4096
 
-#print("Broadcasting self existence to Tracker...")
-#s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#s.connect((TRAC_IP, TRAC_PORT))
-#a = json.dumps({"method": "join", "ip": TCP_IP, "port": TCP_PORT})
-#s.send(a.encode('utf-8'))
-#packet = json.loads(s.recv(BUFFER_SIZE))
-#OTHER_SERVERS = None
-#if packet['status'] == 'ok':
-	#OTHER_SERVERS = packet['value']
-#else:
-	#sys.exit("ERROR: " + packet['description'])
-#s.close()
+print("Broadcasting self existence to Tracker...")
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((TRAC_IP, TRAC_PORT))
+a = json.dumps({"method": "join", "ip": TCP_IP, "port": TCP_PORT})
+s.send(a.encode('utf-8'))
+packet = json.loads(s.recv(BUFFER_SIZE))
+OTHER_SERVERS = None
+if packet['status'] == 'ok':
+	OTHER_SERVERS = packet['value']
+else:
+	sys.exit("ERROR: " + packet['description'])
+s.close()
 
 print("Binding port...")
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -358,9 +368,6 @@ s.listen(1)
 MAIN_LOOP = True
 
 SRVT = "0"  # TODO TIME using epoch time in UTC
-
-
-# Functions ========================================================================
 
 
 # Main Loop =============================================================================
@@ -388,13 +395,7 @@ while MAIN_LOOP is True:
 						msg = {'status': 'error'}
 						conn.send(json.dumps(msg).encode('utf-8'))
 				except Fail as e:
-					print("an operation has failed - " + lineno())
-					print(e.msg)
-					msg = {
-						'status': 'fail',
-						'description': e.msg
-					}
-					conn.send(json.dumps(msg).encode('utf-8'))
+					conn.send(prepFailJSON(e))
 			elif packet['method'] == 'login':
 				try:
 					usrv = UC.login(packet['username'], packet['password'])
@@ -407,13 +408,7 @@ while MAIN_LOOP is True:
 					}
 					conn.send(json.dumps(msg).encode('utf-8'))
 				except Fail as e:
-					print("an operation has failed - " + lineno())
-					print(e.msg)
-					msg = {
-						'status': 'fail',
-						'description': e.msg
-					}
-					conn.send(json.dumps(msg).encode('utf-8'))
+					conn.send( prepFailJSON(e))
 					print(UC.user[0].name)
 					print(UC.user[0].pw)
 			elif packet['method'] == 'inventory':
@@ -424,13 +419,7 @@ while MAIN_LOOP is True:
 					}
 					conn.send(json.dumps(msg).encode('utf-8'))
 				except Fail as e:
-					print("an operation has failed - " + lineno())
-					print(e.msg)
-					msg = {
-						'status': 'fail',
-						'description': e.msg
-					}
-					conn.send(json.dumps(msg).encode('utf-8'))
+					conn.send( prepFailJSON(e))
 			elif packet['method'] == 'mixitem':
 				try:
 					msg = {
@@ -439,13 +428,7 @@ while MAIN_LOOP is True:
 					}
 					conn.send(json.dumps(msg).encode('utf-8'))
 				except Fail as e:
-					print("an operation has failed - " + lineno())
-					print(e.msg)
-					msg = {
-						'status': 'fail',
-						'description': e.msg
-					}
-					conn.send(json.dumps(msg).encode('utf-8'))
+					conn.send(prepFailJSON(e))
 			elif packet['method'] == 'map':
 				msg = {
 					'status': 'ok',
@@ -462,13 +445,7 @@ while MAIN_LOOP is True:
 					}
 					conn.send(json.dumps(msg).encode('utf-8'))
 				except Fail as e:
-					print("an operation has failed - " + lineno())
-					print(e.msg)
-					msg = {
-						'status': 'fail',
-						'description': e.msg
-					}
-					conn.send(json.dumps(msg).encode('utf-8'))
+					conn.send(prepFailJSON(e))
 			elif packet['method'] == 'field':
 				try:
 					msg = {
@@ -477,13 +454,7 @@ while MAIN_LOOP is True:
 					}
 					conn.send(json.dumps(msg).encode('utf-8'))
 				except Fail as e:
-					print("an operation has failed - " + lineno())
-					print(e.msg)
-					msg = {
-						'status': 'fail',
-						'description': e.msg
-					}
-					conn.send(json.dumps(msg).encode('utf-8'))
+					conn.send( prepFailJSON(e))
 			elif packet['method'] == 'offer':
 				try:
 					UC.offer(packet['token'], packet['offered_item'], packet['n1'], packet['demanded_item'], packet['n2'])
@@ -492,26 +463,15 @@ while MAIN_LOOP is True:
 					}
 					conn.send(json.dumps(msg).encode('utf-8'))
 				except Fail as e:
-					print("an operation has failed - " + lineno())
-					print(e.msg)
-					msg = {
-						'status': 'fail',
-						'description': e.msg
-					}
-					conn.send(json.dumps(msg).encode('utf-8'))
+					conn.send(prepFailJSON(e))
 			elif packet['method'] == 'tradebox':
 				try:
 					userbox = UC.getuserbox(packet['token'])
 					msg = '{"status": "ok", "offers": ' + userbox + '}'
 					conn.send(msg.encode('utf-8'))
 				except Fail as e:
-					print("an operation has failed - " + lineno())
-					print(e.msg)
-					msg = {
-						'status': 'error'
-					}
-					conn.send(json.dumps(msg).encode('utf-8'))
-			elif packet['method'] == 'sendfind':
+					conn.send(prepFailJSON(e))
+			elif packet['method'] == 'sendfind':  # TODO
 				print("nop")
 			elif packet['method'] == 'findoffer':
 				try:
@@ -519,17 +479,14 @@ while MAIN_LOOP is True:
 					msg = '{"status": "ok", "offers": ' + items + '}'
 					conn.send(msg.encode('utf-8'))
 				except Fail as e:
-					print("an operation has failed - " + lineno())
-					print(e.msg)
-					msg = {
-						'status': 'error'
-					}
-					conn.send(json.dumps(msg).encode('utf-8'))
-			elif packet['method'] == 'sendaccept':
+					conn.send(prepFailJSON(e))
+			elif packet['method'] == 'sendaccept':  # TODO
 				print("nop")
-			elif packet['method'] == 'accept':
+			elif packet['method'] == 'accept':  # TODO
 				print("nop")
-			elif packet['method'] == 'fetchitem':
+			elif packet['method'] == 'fetchitem':  # TODO
+				print("nop")
+			elif packet['method'] == 'canceloffer':  # TODO
 				print("nop")
 			elif packet['method'] == 'killserver':
 				if packet['magicString'] == 'q34tAq34tb3qy4IUaXa4t':
