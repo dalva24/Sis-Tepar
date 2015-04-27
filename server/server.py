@@ -36,6 +36,13 @@ class Inventory:
 		self.item[name] += amount
 		return item2id(name)
 
+	def remove(self, name, amount):
+		if self.item[name] - amount < 0:
+			raise Fail("insufficient item")
+		self.item[name] -= amount
+		return True
+
+
 	def mix(self, name1, name2):
 		name1 = id2item(name1)
 		name2 = id2item(name2)
@@ -218,6 +225,7 @@ class UserContainer:
 			if usr.token == token:
 				fetched = X.accept(usr.name, itemTok)
 				usr.inv.collect(id2item(fetched[0]), fetched[1])
+				usr.inv.remove(id2item(fetched[2]), fetched[3])
 				return True
 		raise Fail("User not found")
 
@@ -319,13 +327,13 @@ class Xchange:
 		for stk in self.stock:
 			if stk.token == itID and stk.user != usr and stk.sold is False:
 				stk.sold = True
-				return [stk.iBuy, stk.iBuyVal]
+				return [stk.iBuy, stk.iBuyVal, stk.iSell, stk.iSellVal]
 		# then if in self inventory is not found:
 		for srv in self.server:
 			for stk in srv:
 				if stk.token == itID and stk.user != usr and stk.sold is False:
-					return [stk.iBuy, stk.iBuyVal]
-				sendMsg(json.dumps({"method": "accept", "offer_token": stk.token}), srv.ip, srv.port)
+					sendMsg(json.dumps({"method": "accept", "offer_token": stk.token}), srv.ip, srv.port)
+					return [stk.iBuy, stk.iBuyVal, stk.iSell, stk.iSellVal]
 		raise Fail("item not found")
 
 
@@ -584,8 +592,13 @@ while MAIN_LOOP:
 					conn.send(msg.encode('utf-8'))
 				except Fail as e:
 					conn.send(prepFailJSON(e, lineno()))
-			elif packet['method'] == 'sendaccept':  # TODO
-				print("nop")
+			elif packet['method'] == 'sendaccept':
+				try:
+					if UC.acceptOffer(packet['token'], packet['offer_token']):
+						msg = '{"status": "ok"}'
+						conn.send(msg.encode('utf-8'))
+				except Fail as e:
+					conn.send(prepFailJSON(e, lineno()))
 			elif packet['method'] == 'accept':  # server-server
 				try:
 					if X.acceptInSelf(packet['token']):
