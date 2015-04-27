@@ -24,3 +24,7 @@ CS	sendaccept
 SS	accept (offer)
 CS	fetchitem
 CS	canceloffer
+
+0f5bb63592f716c05511cec90e171a89
+842bdc7c69a8e34c53b5afa2ef101c3
+b5e0f7823cffcc65083a712be9d1335

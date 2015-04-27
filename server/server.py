@@ -11,6 +11,9 @@ import datetime
 import random
 import inspect
 import pickle
+import time
+import calendar
+import threading
 
 # Classes ==========================================================================
 class Inventory:
@@ -36,8 +39,8 @@ class Inventory:
 	def mix(self, name1, name2):
 		name1 = id2item(name1)
 		name2 = id2item(name2)
-		if name1[1] is name2[1]:
-			if int(name1[2]) is int(name2[2])+1 or int(name1[2])+1 is int(name2[2]):
+		if name1[1] == name2[1]:
+			if int(name1[2]) == int(name2[2])+1 or int(name1[2])+1 == int(name2[2]):
 				if self.item[name1] >= 3 and self.item[name2] >= 3:
 					self.item[name1] -= 3
 					self.item[name2] -= 3
@@ -71,29 +74,41 @@ class User:
 		self.moveTime = None
 
 	def invToList(self):
-		return [
-			self.inv.item['R11'],
-			self.inv.item['R12'],
-			self.inv.item['R13'],
-			self.inv.item['R14'],
-			self.inv.item['R21'],
-			self.inv.item['R22'],
-			self.inv.item['R23'],
-			self.inv.item['R31'],
-			self.inv.item['R32'],
-			self.inv.item['R41']
-		]
+		l = list()
+		l.append(self.inv.item['R11'])
+		l.append(self.inv.item['R12'])
+		l.append(self.inv.item['R13'])
+		l.append(self.inv.item['R14'])
+		l.append(self.inv.item['R21'])
+		l.append(self.inv.item['R22'])
+		l.append(self.inv.item['R23'])
+		l.append(self.inv.item['R31'])
+		l.append(self.inv.item['R32'])
+		l.append(self.inv.item['R41'])
+		return l
 
 	def move(self, newLoc):
-		if int(self.newLocation[0]) is int(self.location[0])+1 or int(self.newLocation[0]) is int(self.location[0])-1:
-			if int(self.newLocation[1]) is int(self.location[1])+1 or int(self.newLocation[1]) is int(self.location[1])-1:
+		if int(newLoc[0]) == int(self.location[0])+1 or int(newLoc[0]) == int(self.location[0])-1 or int(newLoc[0]) == int(self.location[0]):
+			if int(newLoc[1]) == int(self.location[1])+1 or int(newLoc[1]) == int(self.location[1])-1 or int(newLoc[1]) == int(self.location[1]):
 				self.newLocation = newLoc
-				self.moveTime = random.randint(60, 120)   # TODO: time, and what happens when time reaches zero? threads?
+				ttm = random.randint(10, 30)
+				self.moveTime = srvTime() + ttm
+				t = threading.Thread(target=self.doMove)
+				t.start()
+				print("moving user " + self.name + " in " + str(self.moveTime-srvTime()) + " seconds")
 				return self.moveTime
 			else:
-				raise Fail("move location is too far")
+				print(newLoc + ' - ' + self.location)
+				raise Fail("Move Y too far")
 		else:
-			raise Fail("move location is too far")
+			print(newLoc + ' - ' + self.location)
+			raise Fail("Move X too far")
+
+	def doMove(self):
+		time.sleep(self.moveTime-srvTime())
+		self.location = self.newLocation
+		self.newLocation = None
+		print("user has been moved: " + self.name + " to " + self.location)
 
 
 class UserContainer:
@@ -105,67 +120,68 @@ class UserContainer:
 
 	def login(self, uname, pw):
 		for usr in self.user:
-			if usr.name is uname:
-				if usr.pw is pw:
+			if usr.name == uname:
+				if usr.pw == pw:
 					time = str(datetime.datetime.now())
 					usr.token = hashlib.md5(uname.encode()+pw.encode()+time.encode()).hexdigest()
 					usr.location = str(random.randint(0, MAP.width-1)) + str(random.randint(0, MAP.height-1))
 					return usr
 				else:
-					raise Fail("username/password combination is not found")
-		raise Fail("username/password combination is not found")
+					raise Fail("incorrect password")
+		raise Fail("username not found")
 
 	def signup(self, uname, pw):
 		for usr in self.user:
-			if usr.name is uname:
+			if usr.name == uname:
 				raise Fail("username exists")
 		self.user.append(User(uname, pw))
 		return True
 
 	def save(self):
-		for usr in self.user:
-			usr.token = None
-			usr.location = None
-			usr.newLocation = None
-			usr.moveTime = None
-		#with open("usersave.p","wb") as f:  # TODO check
-			#pickle.dump(self, f)
-		#with open("users.json", "w") as f:
-			#json.dump(self.user, f, default=lambda o: o.__dict__, indent=4)
+		# with open("usersave.p","wb") as f:
+			# pickle.dump(self, f)
+		# with open("users.json", "w") as f:
+			# json.dump(self.user, f, default=lambda o: o.__dict__, indent=4)
 			# i have NO IDEA how that ^ works, but whatever -_- just works.
 			# indent optional.
-		filehandler = open(b"savefile.obj", "wb")
+		filehandler = open(b"savefile.obj", "wb")  # dont fix binary warning. it works.
 		pickle.dump(self.user, filehandler)
+
+	def shutdown(self):
+		for usr in self.user:
+			usr.token = None
+			usr.newLocation = None
+			usr.moveTime = None
 
 	def mix(self, token, name1, name2):
 		for usr in self.user:
-			if usr.token is token:
+			if usr.token == token:
 				return usr.inv.mix(name1, name2)
 		raise Fail("User not found")
 
 	def inv(self, token):
 		for usr in self.user:
-			if usr.token is token:
+			if usr.token == token:
 				return usr.invToList()
 		raise Fail("User not found")
 
 	def move(self, token, newLoc):
 		for usr in self.user:
-			if usr.token is token:
+			if usr.token == token:
 				return usr.move(newLoc)
 		raise Fail("User not found")
 
 	def collect(self, token):
 		for usr in self.user:
-			if usr.token is token:
-				item = MAP.items[usr.location[0]][usr.location[1]]
+			if usr.token == token:
+				item = MAP.items[int(usr.location[0])][int(usr.location[1])]
 				return usr.inv.collect(item, 1)
 		raise Fail("User not found")
 
 	def offer(self, token, iSell, iBuy, iSellVal, iBuyVal):
 		for usr in self.user:
-			if usr.token is token:
-				if usr.inv[id2item(iSell)] >= iSellVal: #TODO: check if possible to call dict straight away like this
+			if usr.token == token:
+				if usr.inv.item[id2item(iSell)] >= iSellVal:
 					X.offer(iSell, iBuy, iSellVal, iBuyVal, usr.name)
 					return True
 				raise Fail("insufficient item")
@@ -173,13 +189,41 @@ class UserContainer:
 
 	def getuserbox(self, token):
 		for usr in self.user:
-			if usr.token is token:
+			if usr.token == token:
 				return X.getuserbox(usr.name)
 		raise Fail("User not found")
 
+	def cancelOffer(self, token, itemtok):
+		for usr in self.user:
+			if usr.token == token:
+				return X.cancel(itemtok)
+		raise Fail("User not found")
+
+	def find(self, token, itemID):
+		for usr in self.user:
+			if usr.token == token:
+				return X.find(usr.name, itemID)
+		raise Fail("User not found")
+
+	def fetch(self, token, itemTok):
+		for usr in self.user:
+			if usr.token == token:
+				fetched = X.fetchInSelf(usr.name, itemTok)
+				usr.inv.collect(id2item(fetched[0]), fetched[1])
+				return True
+		raise Fail("User not found")
+
+	def acceptOffer(self, token, itemTok):
+		for usr in self.user:
+			if usr.token == token:
+				fetched = X.accept(usr.name, itemTok)
+				usr.inv.collect(id2item(fetched[0]), fetched[1])
+				return True
+		raise Fail("User not found")
+
 class Map:
-	def __init__(self):
-		with open(sys.argv[2]) as f:
+	def __init__(self, name):
+		with open(name) as f:
 			mapdata = json.load(f)
 		self.name = mapdata['name']
 		self.width = mapdata['width']
@@ -198,25 +242,22 @@ class Xchange:
 	def offer(self, iSell, iBuy, iSellVal, iBuyVal, user):
 		self.stock.append(XItem(iSell, iBuy, iSellVal, iBuyVal, user))
 
-	def transaction(self, token):  # TODO fix
-		for stk in self.stock:
-			if stk.token is token:
-				stk.sold = True
-		raise Fail("User not found")
-
 	def formatStockList(self, stockList):
 		retStr = "["
 		for stock in stockList:
 			retStr += "["
-			retStr += item2id(stock.iSell)
+			retStr += str(stock.iSell)
 			retStr += ","
 			retStr += str(stock.iSellVal)
 			retStr += ","
-			retStr += item2id(stock.iBuy)
+			retStr += str(stock.iBuy)
 			retStr += ","
 			retStr += str(stock.iBuyVal)
 			retStr += ","
-			retStr += not stock.sold
+			if stock.sold:
+				retStr += "false"
+			else:
+				retStr += "true"
 			retStr += ","
 			retStr += stock.token
 			retStr += "]"
@@ -228,29 +269,64 @@ class Xchange:
 	def getuserbox(self, user):
 		userstk = []
 		for stk in self.stock:
-			if stk.user is user:
+			if stk.user == user:
 				userstk.append(stk)
 		return self.formatStockList(userstk)
 
 	def find(self, user, iBuy):
 		retstk = []
 		for stk in self.stock:
-			if stk.iSell is iBuy and stk.user is not user:
+			if stk.iSell == iBuy and stk.user != user and stk.sold is False:
 				retstk.append(stk)
 		for srv in self.server:
-			# TODO call findOffer
+			sendMsg(json.dumps({"method": "findoffer", "item": iBuy}), srv.ip, srv.port)
 			for stk in srv:
-				if stk.iSell is iBuy and stk.user is not user:
+				if stk.iSell == iBuy and stk.user != user and stk.sold is False:
 					retstk.append(stk)
 		return self.formatStockList(retstk)
 
 	def findInSelf(self, item):
 		retstk = []
 		for stk in self.stock:
-			if stk.iSell is item:
+			if stk.iSell == item and stk.sold is False:
 				retstk.append(stk)
 		return self.formatStockList(retstk)
 
+	def fetchInSelf(self, usr, itID):
+		for stk in self.stock:
+			if stk.token == itID and stk.sold is True and stk.user == usr:
+				return [stk.iBuy, stk.iBuyVal]
+		raise Fail("item not found")
+
+	def acceptInSelf(self, token):
+		for stk in self.stock:
+			if stk.token == token:
+				self.stock.remove(stk)
+				return True
+		raise Fail("offer is not available")
+
+	def cancel(self, token):
+		for stk in self.stock:
+			if stk.token == token:
+				if stk.sold:
+					raise Fail("item has been sold")
+				else:
+					self.stock.remove(stk)
+					return True
+		raise Fail("item not found")
+
+	def accept(self, usr, itID):
+		for stk in self.stock:
+			if stk.token == itID and stk.user != usr and stk.sold is False:
+				stk.sold = True
+				return [stk.iBuy, stk.iBuyVal]
+		# then if in self inventory is not found:
+		for srv in self.server:
+			for stk in srv:
+				if stk.token == itID and stk.user != usr and stk.sold is False:
+					return [stk.iBuy, stk.iBuyVal]
+				sendMsg(json.dumps({"method": "accept", "offer_token": stk.token}), srv.ip, srv.port)
+		raise Fail("item not found")
 
 
 class XItem:
@@ -261,13 +337,12 @@ class XItem:
 		self.iSellVal = iSellVal
 		self.user = user
 		self.sold = False
-		time = str(datetime.datetime.now())
-		self.token = hashlib.md5(self.iBuy.encode()+self.iSell.encode()+time.encode()).hexdigest()
+		self.token = '0'+hex(random.getrandbits(128))[2:-1]
 
 
 class Server:
 	def __init__(self, ip, port):
-		self.ip = ip;
+		self.ip = ip
 		self.port = port
 		self.stock = []
 
@@ -283,7 +358,7 @@ class Fail(Exception):
 
 # Functions ========================================================================
 def lineno():
-	return inspect.currentframe().f_back.f_lineno
+	return str(inspect.currentframe().f_back.f_lineno)
 
 
 def id2item(val):
@@ -318,9 +393,8 @@ def item2id(name):
 	return translator[name]
 
 
-def prepFailJSON(ex):
-	print("an operation has failed at line " + lineno())
-	print(ex.msg)
+def prepFailJSON(ex, no):
+	print("an operation has failed at line " + no + " - " + ex.msg)
 	jmsg = {
 		'status': 'fail',
 		'description': e.msg
@@ -328,37 +402,54 @@ def prepFailJSON(ex):
 	return json.dumps(jmsg).encode('utf-8')
 
 
+def srvTime():
+	return calendar.timegm(time.gmtime())
+
+
+def sendMsg(msg, ip, port):
+	srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	srv.connect((ip, port))
+	# m = json.dumps({"method": "join", "ip": TCP_IP, "port": TCP_PORT})
+	srv.send(msg.encode('utf-8'))
+	packet = json.loads(srv.recv(BUFFER_SIZE))
+	if packet['status'] != 'ok':
+		raise Fail(packet['description'])
+	srv.close()
+	return True
+
+
 # Prep =============================================================================
-if len(sys.argv) < 3:
-	sys.exit('Usage: server.py port mapfile\nAvailable mapfiles:\n  map1.json ')
+if len(sys.argv) < 4:
+	sys.exit('Usage: server.py self-ip port mapfile (optional)notrack\nAvailable mapfiles:\n  map1.json ')
 
-if not os.path.exists(sys.argv[2]):
-	sys.exit('ERROR: Map %s was not found!' % sys.argv[2])
+if not os.path.exists(sys.argv[3]):
+	sys.exit('ERROR: Map %s was not found!' % sys.argv[3])
 
-TCP_IP = '127.0.0.1'  # TODO: customize self IP from argv
-TCP_PORT = int(sys.argv[1])
+TCP_IP = sys.argv[1]
+TCP_PORT = int(sys.argv[2])
 
-TRAC_IP = '127.0.0.1'
+TRAC_IP = '167.205.32.46'
 TRAC_PORT = 8000
 
-MAP = Map()
+MAP = Map(sys.argv[3])
 UC = UserContainer()
 X = Xchange()
 
 BUFFER_SIZE = 4096
 
-print("Broadcasting self existence to Tracker...")
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((TRAC_IP, TRAC_PORT))
-a = json.dumps({"method": "join", "ip": TCP_IP, "port": TCP_PORT})
-s.send(a.encode('utf-8'))
-packet = json.loads(s.recv(BUFFER_SIZE))
-OTHER_SERVERS = None
-if packet['status'] == 'ok':
-	OTHER_SERVERS = packet['value']
-else:
-	sys.exit("ERROR: " + packet['description'])
-s.close()
+if len(sys.argv) < 3:
+	print("Broadcasting self existence to Tracker...")
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s.connect((TRAC_IP, TRAC_PORT))
+	a = json.dumps({"method": "join", "ip": TCP_IP, "port": TCP_PORT})
+	s.send(a.encode('utf-8'))
+	packet = json.loads(s.recv(BUFFER_SIZE))
+	OTHER_SERVERS = None
+	if packet['status'] == 'ok':
+		OTHER_SERVERS = packet['value']
+	else:
+		sys.exit("ERROR: " + packet['description'])
+	s.close()
 
 print("Binding port...")
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -367,20 +458,18 @@ s.listen(1)
 
 MAIN_LOOP = True
 
-SRVT = "0"  # TODO TIME using epoch time in UTC
-
 
 # Main Loop =============================================================================
 
 print("Server Init Completed. Listening...")
-while MAIN_LOOP is True:
+while MAIN_LOOP:
 	conn, addr = s.accept()
 	data = conn.recv(BUFFER_SIZE).decode('utf-8')
-	print("New LoliCON")
-	if str(data) is "":
+	print("== New LoliCON ==")
+	if str(data) == "":
 		print("PING")
 	else:  # handleJSON
-		#try:
+		# try:
 			packet = json.loads(str(data))
 			if packet['method'] == 'serverStatus':
 				OTHER_SERVERS = packet['server']
@@ -391,11 +480,12 @@ while MAIN_LOOP is True:
 					if UC.signup(packet['username'], packet['password']):
 						msg = {'status': 'ok'}
 						conn.send(json.dumps(msg).encode('utf-8'))
+						print("  user signed up: " + packet['username'])
 					else:
 						msg = {'status': 'error'}
 						conn.send(json.dumps(msg).encode('utf-8'))
 				except Fail as e:
-					conn.send(prepFailJSON(e))
+					conn.send(prepFailJSON(e, lineno()))
 			elif packet['method'] == 'login':
 				try:
 					usrv = UC.login(packet['username'], packet['password'])
@@ -404,22 +494,22 @@ while MAIN_LOOP is True:
 						'token': usrv.token,
 						'x': usrv.location[0],
 						'y': usrv.location[1],
-						'time': SRVT  # TODO TIME
+						'time': srvTime()
 					}
 					conn.send(json.dumps(msg).encode('utf-8'))
+					print("  user logged in: " + packet['username'])
 				except Fail as e:
-					conn.send( prepFailJSON(e))
-					print(UC.user[0].name)
-					print(UC.user[0].pw)
+					conn.send(prepFailJSON(e, lineno()))
 			elif packet['method'] == 'inventory':
 				try:
 					msg = {
 						'status': 'ok',
-						'inventory': str(UC.inv(packet['token']))
+						'inventory': UC.inv(packet['token'])
 					}
 					conn.send(json.dumps(msg).encode('utf-8'))
+					print("  user token checked inventory: " + packet['token'])
 				except Fail as e:
-					conn.send( prepFailJSON(e))
+					conn.send(prepFailJSON(e, lineno()))
 			elif packet['method'] == 'mixitem':
 				try:
 					msg = {
@@ -427,8 +517,9 @@ while MAIN_LOOP is True:
 						'item': UC.mix(packet['token'], packet['item1'], packet['item2'])
 					}
 					conn.send(json.dumps(msg).encode('utf-8'))
+					print("  user token mixed item: " + packet['token'])
 				except Fail as e:
-					conn.send(prepFailJSON(e))
+					conn.send(prepFailJSON(e, lineno()))
 			elif packet['method'] == 'map':
 				msg = {
 					'status': 'ok',
@@ -437,15 +528,17 @@ while MAIN_LOOP is True:
 					'height': MAP.height
 				}
 				conn.send(json.dumps(msg).encode('utf-8'))
+				print("  map checked")
 			elif packet['method'] == 'move':
 				try:
 					msg = {
 						'status': 'ok',
-						'time': UC.move(packet['token'], str(packet['x'] + str(packet['y'])))  # TODO TIME
+						'time': UC.move(packet['token'], str(packet['x']) + str(packet['y']))
 					}
 					conn.send(json.dumps(msg).encode('utf-8'))
+					print("  moving user token: " + packet['token'] + " to " + str(packet['x']) + str(packet['y']))
 				except Fail as e:
-					conn.send(prepFailJSON(e))
+					conn.send(prepFailJSON(e, lineno()))
 			elif packet['method'] == 'field':
 				try:
 					msg = {
@@ -453,8 +546,9 @@ while MAIN_LOOP is True:
 						'item': UC.collect(packet['token'])
 					}
 					conn.send(json.dumps(msg).encode('utf-8'))
+					print("  user token harvested item:" + packet['token'])
 				except Fail as e:
-					conn.send( prepFailJSON(e))
+					conn.send(prepFailJSON(e, lineno()))
 			elif packet['method'] == 'offer':
 				try:
 					UC.offer(packet['token'], packet['offered_item'], packet['n1'], packet['demanded_item'], packet['n2'])
@@ -462,32 +556,57 @@ while MAIN_LOOP is True:
 						'status': 'ok'
 					}
 					conn.send(json.dumps(msg).encode('utf-8'))
+					print("  user token offered an item: " + packet['token'])
 				except Fail as e:
-					conn.send(prepFailJSON(e))
+					conn.send(prepFailJSON(e, lineno()))
 			elif packet['method'] == 'tradebox':
 				try:
 					userbox = UC.getuserbox(packet['token'])
 					msg = '{"status": "ok", "offers": ' + userbox + '}'
 					conn.send(msg.encode('utf-8'))
+					print(X.stock)
+					print(msg.encode('utf-8'))
 				except Fail as e:
-					conn.send(prepFailJSON(e))
-			elif packet['method'] == 'sendfind':  # TODO
-				print("nop")
-			elif packet['method'] == 'findoffer':
+					conn.send(prepFailJSON(e, lineno()))
+			elif packet['method'] == 'sendfind':
+				try:
+					box = UC.find(packet['token'], packet['item'])
+					msg = '{"status": "ok", "offers": ' + box + '}'
+					conn.send(msg.encode('utf-8'))
+					print(X.stock)
+					print(msg.encode('utf-8'))
+				except Fail as e:
+					conn.send(prepFailJSON(e, lineno()))
+			elif packet['method'] == 'findoffer':  # server-server
 				try:
 					items = X.findInSelf(id2item(packet['item']))
 					msg = '{"status": "ok", "offers": ' + items + '}'
 					conn.send(msg.encode('utf-8'))
 				except Fail as e:
-					conn.send(prepFailJSON(e))
+					conn.send(prepFailJSON(e, lineno()))
 			elif packet['method'] == 'sendaccept':  # TODO
 				print("nop")
-			elif packet['method'] == 'accept':  # TODO
-				print("nop")
-			elif packet['method'] == 'fetchitem':  # TODO
-				print("nop")
-			elif packet['method'] == 'canceloffer':  # TODO
-				print("nop")
+			elif packet['method'] == 'accept':  # server-server
+				try:
+					if X.acceptInSelf(packet['token']):
+						msg = '{"status": "ok"}'
+						conn.send(msg.encode('utf-8'))
+				except Fail as e:
+					conn.send(prepFailJSON(e, lineno()))
+			elif packet['method'] == 'fetchitem':
+				try:
+					if UC.fetch(packet['token'], packet['offer_token']):
+						msg = '{"status": "ok"}'
+						conn.send(msg.encode('utf-8'))
+				except Fail as e:
+					conn.send(prepFailJSON(e, lineno()))
+			elif packet['method'] == 'canceloffer':
+				try:
+					if UC.cancelOffer(packet['token'], packet['offer_token']):
+						msg = '{"status": "ok"}'
+						conn.send(msg.encode('utf-8'))
+				except Fail as e:
+					conn.send(prepFailJSON(e, lineno()))
 			elif packet['method'] == 'killserver':
 				if packet['magicString'] == 'q34tAq34tb3qy4IUaXa4t':
 					print("Shutting down server...")
@@ -496,12 +615,14 @@ while MAIN_LOOP is True:
 					print("WARNING: intrusion attempt")
 			else:
 				print("unknown connection method.")
-		#except Exception as ex:
-		#	print("ERROR: unknown exception in handling connection data.")
-		#	print(ex)
+		# except Exception as ex:
+		# 	print("ERROR: unknown exception in handling connection data.")
+		# 	print(ex)
 
 	# conn.shutdown('SHUT_RDWR')
 	conn.close()
 	UC.save()  # save aaaall the time. really safe for times when server suddenly crash for no reason whatsoever.
 
 # Cleanup =============================================================================
+UC.shutdown()
+UC.save()
